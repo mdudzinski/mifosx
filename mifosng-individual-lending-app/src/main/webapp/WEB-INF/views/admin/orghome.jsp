@@ -383,6 +383,23 @@
 					e.preventDefault();
 				});
 				
+				$("a.transfer").click( function(e) {
+					var linkId = this.id;
+					var entityId = linkId.replace("transfer", "");
+					var url = '${rootContext}org/office/' + entityId + '/transfer';
+					var templateSelector = "#officeTransferOfFundsFormTemplate";
+					var width = 600;
+					var height = 400;
+					
+					var saveSuccessFunction = function(data, textStatus, jqXHR) {
+						  $("#dialog-form").dialog("close");
+						  refreshOfficesView();
+					}
+					
+					popupDialogWithFormView(url, "dialog.title.office.details", templateSelector, width, height, saveSuccessFunction);
+					e.preventDefault();
+				});
+				
 				$("a.delete").click( function(e) {
 					var linkId = this.id;
 					var entityId = linkId.replace("delete", "");

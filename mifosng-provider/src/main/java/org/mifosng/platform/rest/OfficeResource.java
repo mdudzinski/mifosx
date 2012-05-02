@@ -19,6 +19,7 @@ import org.mifosng.data.ErrorResponse;
 import org.mifosng.data.ErrorResponseList;
 import org.mifosng.data.OfficeData;
 import org.mifosng.data.OfficeList;
+import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.command.OfficeCommand;
 import org.mifosng.platform.ReadPlatformService;
 import org.mifosng.platform.WritePlatformService;
@@ -132,4 +133,27 @@ public class OfficeResource {
 			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getValidationErrors())).build());
 		}
 	}
+	
+	@GET
+	@Path("{officeId}/transfer")
+	@Consumes({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+	@Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+	public Response retreiveOfficeTransferDetails(@PathParam("officeId") final Long officeId) {
+
+    	try {
+    		OfficeTransferData officeTransferData = this.readPlatformService.retrieveOfficeTransferDetails(officeId);
+
+    		return Response.ok().entity(officeTransferData).build();
+		} catch (ClientNotAuthenticatedException e) {
+			throw new WebApplicationException(Response.status(Status.UNAUTHORIZED).build());
+		} catch (AccessDeniedException e) {
+			ErrorResponse errorResponse = new ErrorResponse("error.msg.no.permission", "id");
+			ErrorResponseList list = new ErrorResponseList(Arrays.asList(errorResponse));
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(list).build());
+		} catch (ApplicationDomainRuleException e) {
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getErrors())).build());
+		} catch (NewDataValidationException e) {
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getValidationErrors())).build());
+		}
+    }
 }

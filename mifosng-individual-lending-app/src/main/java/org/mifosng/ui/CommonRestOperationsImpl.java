@@ -31,6 +31,7 @@ import org.mifosng.data.NoteData;
 import org.mifosng.data.NoteDataList;
 import org.mifosng.data.OfficeData;
 import org.mifosng.data.OfficeList;
+import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.PermissionData;
 import org.mifosng.data.PermissionList;
 import org.mifosng.data.RoleData;
@@ -1214,6 +1215,19 @@ public class CommonRestOperationsImpl implements CommonRestOperations {
 		}
 	}
 	
+	@Override
+	public OfficeTransferData retrieveOfficeTransferDetails(final Long officeId) {
+		try {
+			URI restUri = URI.create(getBaseServerUrl().concat("api/protected/office/" + officeId).concat("/transfer"));
+
+			ResponseEntity<OfficeTransferData> s = this.oauthRestServiceTemplate.exchange(restUri, HttpMethod.GET, emptyRequest(), OfficeTransferData.class);
+			
+			return s.getBody();
+		} catch (HttpStatusCodeException e) {
+			ErrorResponseList errorList = parseErrors(e);
+			throw new ClientValidationException(errorList.getErrors());
+		}
+	}
 
 	@Override
 	public GenericResultset retrieveReportingData(String rptDB, String name, String type, Map<String, String> extractedQueryParams) {

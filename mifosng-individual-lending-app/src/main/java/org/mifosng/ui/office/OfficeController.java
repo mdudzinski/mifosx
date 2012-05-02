@@ -14,6 +14,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.mifosng.data.EntityIdentifier;
 import org.mifosng.data.ErrorResponse;
 import org.mifosng.data.OfficeData;
+import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.command.OfficeCommand;
 import org.mifosng.ui.CommonRestOperations;
 import org.mifosng.ui.loanproduct.ClientValidationException;
@@ -124,5 +125,11 @@ public class OfficeController {
 		
 		OfficeCommand command = new OfficeCommand(officeId, name, externalId, parentId, openingLocalDate);
 		return this.commonRestOperations.updateOffice(command);
+	}
+	
+	@RequestMapping(consumes="application/json", produces="application/json", value = "/org/office/{officeId}/transfer", method = RequestMethod.GET)
+	public @ResponseBody OfficeTransferData retrieveOfficeTransferFromDetails(@PathVariable("officeId") final Long officeId) {
+
+		return this.commonRestOperations.retrieveOfficeTransferDetails(officeId);
 	}
 }

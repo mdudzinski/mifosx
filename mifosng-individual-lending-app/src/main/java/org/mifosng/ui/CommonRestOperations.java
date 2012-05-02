@@ -17,6 +17,7 @@ import org.mifosng.data.LoanSchedule;
 import org.mifosng.data.NewLoanWorkflowStepOneData;
 import org.mifosng.data.NoteData;
 import org.mifosng.data.OfficeData;
+import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.PermissionData;
 import org.mifosng.data.RoleData;
 import org.mifosng.data.command.AdjustLoanTransactionCommand;
@@ -174,4 +175,6 @@ public interface CommonRestOperations {
 	GenericResultset retrieveReportingData(String rptDB, String name, String type, Map<String, String> extractedQueryParams);
 
 	NewLoanWorkflowStepOneData retrieveNewLoanApplicationDetails(Long clientId, Long productId);
+
+	OfficeTransferData retrieveOfficeTransferDetails(Long officeId);
 }

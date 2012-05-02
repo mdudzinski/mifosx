@@ -16,6 +16,7 @@ import org.mifosng.data.LoanRepaymentData;
 import org.mifosng.data.NewLoanWorkflowStepOneData;
 import org.mifosng.data.NoteData;
 import org.mifosng.data.OfficeData;
+import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.OrganisationReadModel;
 import org.mifosng.data.PermissionData;
 import org.mifosng.data.RoleData;
@@ -65,6 +66,8 @@ public interface ReadPlatformService {
 	LoanProductData retrieveNewLoanProductDetails();
 
 	OfficeData retrieveOffice(Long officeId);
+	
+	OfficeTransferData retrieveOfficeTransferDetails(Long officeId);
 
 	Collection<AppUserData> retrieveAllUsers();
 

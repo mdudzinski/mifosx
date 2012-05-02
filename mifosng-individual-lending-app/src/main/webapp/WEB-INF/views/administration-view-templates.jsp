@@ -212,6 +212,7 @@
 		<!--
 		<a id='delete{{=id}}' class='delete' href='#' style='margin-right: 5px;'><spring:message code="link.action.product.delete"/></a>
 		-->
+		<a id='transfer{{=id}}' class='transfer' href='#' style='margin-right: 5px;'><spring:message code="link.action.transferfunds"/></a>
 	</td>
 </tr>
 {{/each}}
