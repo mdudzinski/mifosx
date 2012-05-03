@@ -421,6 +421,14 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 		
 		OfficeData fromOffice = retrieveOffice(officeId);
 		
+		// get children direct children and parent of office (allowed to transfer to these offices)
+		
+		// if from office is parent office
+		List<OfficeData> allOffices = new ArrayList<OfficeData>(retrieveAllOffices());
+		allOffices.remove(fromOffice);
+		
+		officeTransferData.setPossibleToOffices(allOffices);
+		
 		officeTransferData.setFromOffice(fromOffice);
 		officeTransferData.setPaymentDate(new LocalDate());
 		officeTransferData.setPaymentAmount(BigDecimal.ZERO);

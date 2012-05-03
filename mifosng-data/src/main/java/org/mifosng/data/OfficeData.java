@@ -100,4 +100,16 @@ public class OfficeData implements Serializable {
 	public void setHierarchy(String hierarchy) {
 		this.hierarchy = hierarchy;
 	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (obj == null) return false;
+		OfficeData rhs = (OfficeData) obj;
+		return rhs.id.equals(this.id);
+	}
+	
+	@Override
+	public int hashCode() {
+		return this.id.hashCode();
+	}
 }

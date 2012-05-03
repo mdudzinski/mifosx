@@ -252,6 +252,37 @@
 </form>
 </script>
 
+<script id="officeTransferOfFundsFormTemplate" type="text/x-jquery-tmpl">
+<form id="entityform">
+    <div id="formerrors"></div>
+	</div>
+	<fieldset>
+		<legend><spring:message code="form.legend.transfer.details"/></legend>
+		<label for="name"><spring:message code="form.label.transfer.from"/></label>
+		<input id="name" name="fromOfficeName" title="" type="text" value="{{=fromOffice.name}}" size="75" disabled="disabled" />
+		<input id="fromOfficeId" name="fromOfficeId" title="" type="hidden" value="{{=fromOffice.id}}" />
+
+		<label for="parentId"><spring:message code="form.label.transfer.to"/></label>
+		<select id="parentId" name="parentId" title="">
+            <option value="-1"><spring:message code="option.office.first.choice"/></option>
+			{{#each possibleToOffices}}
+				{{#if $ctx.number($parent.parent.data.toOffice)===$ctx.number(id)}}
+					<option value="{{=$ctx.number(id)}}" selected="selected">{{=name}}</option>
+				{{#else}}
+					<option value="{{=$ctx.number(id)}}">{{=name}}</option>
+				{{/if}}
+            {{/each}}
+		</select>
+
+		<label for="transactionDate"><spring:message code="form.label.transfer.date"/></label>
+		<input id="transactionDate" name="transactionDate" title="" type="text" value="{{=$ctx.globalDate(paymentDate)}}" size="75" class="datepickerfield" />
+
+		<label for="transactionAmount"><spring:message code="form.label.transfer.amount"/></label>
+		<input id="transactionAmount" name="transactionAmount" title="" type="text" value="{{=paymentAmount}}" size="75"/>
+	</fieldset>
+</form>
+</script>
+
 <script id="configurationFormTemplate" type="text/x-jquery-tmpl">
 <form id="entityform">
     <div id="formerrors"></div>

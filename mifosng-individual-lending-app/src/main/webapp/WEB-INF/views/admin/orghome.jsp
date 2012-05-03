@@ -396,7 +396,7 @@
 						  refreshOfficesView();
 					}
 					
-					popupDialogWithFormView(url, "dialog.title.office.details", templateSelector, width, height, saveSuccessFunction);
+					popupDialogWithFormView(url, "dialog.title.transfer.funds", templateSelector, width, height, saveSuccessFunction);
 					e.preventDefault();
 				});
 				
