@@ -38,6 +38,7 @@ import org.mifosng.data.RoleData;
 import org.mifosng.data.RoleList;
 import org.mifosng.data.UserList;
 import org.mifosng.data.command.AdjustLoanTransactionCommand;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.CalculateLoanScheduleCommand;
 import org.mifosng.data.command.ChangePasswordCommand;
 import org.mifosng.data.command.CreateLoanProductCommand;
@@ -1020,6 +1021,24 @@ public class CommonRestOperationsImpl implements CommonRestOperations {
 			throw new ClientValidationException(errorList.getErrors());
 		}
 	}
+	
+
+	@Override
+	public EntityIdentifier transferFunds(BranchMoneyTransferCommand command) {
+		try {
+			URI restUri = URI
+					.create(getBaseServerUrl().concat("api/protected/office/").concat(command.getFromOfficeId().toString()).concat("/transfer"));
+
+			ResponseEntity<EntityIdentifier> s = this.oauthRestServiceTemplate
+					.postForEntity(restUri, createOfficeFundTransferRequest(command),
+							EntityIdentifier.class);
+
+			return s.getBody();
+		} catch (HttpStatusCodeException e) {
+			ErrorResponseList errorList = parseErrors(e);
+			throw new ClientValidationException(errorList.getErrors());
+		}
+	}
 
 	@Override
 	public EntityIdentifier updateOffice(final OfficeCommand command) {
@@ -1038,6 +1057,18 @@ public class CommonRestOperationsImpl implements CommonRestOperations {
 		}
 	}
 
+	private HttpEntity<BranchMoneyTransferCommand> createOfficeFundTransferRequest(
+			final BranchMoneyTransferCommand command) {
+
+		HttpHeaders requestHeaders = new HttpHeaders();
+		requestHeaders.set("Accept", "application/xml");
+		requestHeaders.set("Content-Type", "application/xml");
+
+		HttpEntity<BranchMoneyTransferCommand> requestEntity = new HttpEntity<BranchMoneyTransferCommand>(
+				command, requestHeaders);
+		return requestEntity;
+	}
+	
 	private HttpEntity<OfficeCommand> createOfficeRequest(
 			final OfficeCommand command) {
 

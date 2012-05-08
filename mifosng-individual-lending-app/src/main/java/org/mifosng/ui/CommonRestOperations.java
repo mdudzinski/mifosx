@@ -21,6 +21,7 @@ import org.mifosng.data.OfficeTransferData;
 import org.mifosng.data.PermissionData;
 import org.mifosng.data.RoleData;
 import org.mifosng.data.command.AdjustLoanTransactionCommand;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.CalculateLoanScheduleCommand;
 import org.mifosng.data.command.ChangePasswordCommand;
 import org.mifosng.data.command.CreateLoanProductCommand;
@@ -177,4 +178,6 @@ public interface CommonRestOperations {
 	NewLoanWorkflowStepOneData retrieveNewLoanApplicationDetails(Long clientId, Long productId);
 
 	OfficeTransferData retrieveOfficeTransferDetails(Long officeId);
+
+	EntityIdentifier transferFunds(BranchMoneyTransferCommand command);
 }

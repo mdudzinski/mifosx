@@ -1,5 +1,8 @@
 package org.mifosng.ui.office;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -15,6 +18,7 @@ import org.mifosng.data.EntityIdentifier;
 import org.mifosng.data.ErrorResponse;
 import org.mifosng.data.OfficeData;
 import org.mifosng.data.OfficeTransferData;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.OfficeCommand;
 import org.mifosng.ui.CommonRestOperations;
 import org.mifosng.ui.loanproduct.ClientValidationException;
@@ -131,5 +135,42 @@ public class OfficeController {
 	public @ResponseBody OfficeTransferData retrieveOfficeTransferFromDetails(@PathVariable("officeId") final Long officeId) {
 
 		return this.commonRestOperations.retrieveOfficeTransferDetails(officeId);
+	}
+	
+	@RequestMapping(consumes="application/x-www-form-urlencoded", produces="application/json", value = "/org/office/{officeId}/transfer", method = RequestMethod.POST)
+	@ResponseStatus(HttpStatus.OK)
+	public @ResponseBody EntityIdentifier transferFundsToOffice(HttpServletRequest request, 
+			@PathVariable("officeId") final Long fromOfficeId,
+			@RequestParam(value="toOfficeId", required=false) final Long toOfficeId,
+			@RequestParam(value="transactionDate", required=false) final String transactionDate,
+			@RequestParam(value="transactionAmount", required=false) String transactionAmountNumber)  {
+		
+		LocalDate transactionLocalDate = parseStringToLocalDate(transactionDate, "transactionDate");
+		BigDecimal transactionAmount = parseStringToBigDecimal(transactionAmountNumber);
+		
+		BranchMoneyTransferCommand command = new BranchMoneyTransferCommand(fromOfficeId, toOfficeId, transactionLocalDate, transactionAmount);
+		
+		return this.commonRestOperations.transferFunds(command);
+	}
+	
+	private BigDecimal parseStringToBigDecimal(String source) {
+		try {
+			BigDecimal number = null;
+
+			if (StringUtils.isNotBlank(source)) {
+				String sourceWithoutSpaces = source.replaceAll(" ", "");
+				Locale locale = LocaleContextHolder.getLocale();
+				NumberFormat format = NumberFormat.getNumberInstance(locale);
+				Number parsedNumber = format.parse(sourceWithoutSpaces);
+				number = BigDecimal.valueOf(Double.valueOf(parsedNumber
+						.doubleValue()));
+			}
+			
+			return number;
+		} catch (ParseException e) {
+			List<ErrorResponse> validationErrors = new ArrayList<ErrorResponse>();
+			validationErrors.add(new ErrorResponse("validation.msg.invalid.number.format", "amount", source));
+			throw new ClientValidationException(validationErrors);
+		}
 	}
 }

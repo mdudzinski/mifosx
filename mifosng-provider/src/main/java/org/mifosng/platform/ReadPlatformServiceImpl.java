@@ -160,7 +160,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 
 		AppUser currentUser = extractAuthenticatedUser();
 		
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 		String officeIdsList = generateOfficeIdInClause(offices);
 		ClientMapper rm = new ClientMapper(offices, currentUser.getOrganisation());
 
@@ -331,20 +331,35 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 		}
 	}
 
-	private List<OfficeData> retrieveOffices() {
+	private List<OfficeData> retrieveOfficesInUserHierarchy() {
 
 		AppUser currentUser = extractAuthenticatedUser();
 		
 		String hierarchy = currentUser.getOffice().getHierarchy();
 		String hierarchySearchString = hierarchy + "%";
 		
-		OfficeMapper rm = new OfficeMapper();
+		OfficeMapper rm = new OfficeMapper(currentUser.getOffice().getId());
 		String sql = "select " + rm.officeSchema() + "where o.org_id = ? and o.hierarchy like ? order by o.hierarchy";
 
 		return this.jdbcTemplate.query(sql, rm, new Object[] {currentUser.getOrganisation().getId(), hierarchySearchString});
 	}
+	
+	private List<OfficeData> retrieveAllOffices() {
+		AppUser currentUser = extractAuthenticatedUser();
+		
+		OfficeMapper rm = new OfficeMapper(currentUser.getOffice().getId());
+		String sql = "select " + rm.officeSchema() + "where o.org_id = ?";
+
+		return this.jdbcTemplate.query(sql, rm, new Object[] {currentUser.getOrganisation().getId()});
+	}
 
 	protected static final class OfficeMapper implements RowMapper<OfficeData> {
+
+		private final Long userOfficeId;
+
+		public OfficeMapper(Long userOfficeId) {
+			this.userOfficeId = userOfficeId;
+		}
 
 		public String officeSchema() {
 			return " o.id as id, o.name as name, o.external_id as externalId, o.opening_date as openingDate, o.hierarchy as hierarchy, parent.id as parentId, parent.name as parentName "
@@ -363,14 +378,14 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 			Long parentId = rs.getLong("parentId");
 			String parentName = rs.getString("parentName");
 
-			return new OfficeData(id, name, externalId, openingDate, hierarchy, parentId, parentName);
+			return new OfficeData(id, name, externalId, openingDate, hierarchy, parentId, parentName, userOfficeId);
 		}
 	}
 
 	@Override
-	public Collection<OfficeData> retrieveAllOffices() {
+	public Collection<OfficeData> retrieveAllOfficesInUserHierarchy() {
 
-		return retrieveOffices();
+		return retrieveOfficesInUserHierarchy();
 	}
 
 	@Override
@@ -379,7 +394,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 		try {
 			AppUser currentUser = extractAuthenticatedUser();
 
-			OfficeMapper rm = new OfficeMapper();
+			OfficeMapper rm = new OfficeMapper(currentUser.getOffice().getId());
 			String sql = "select " + rm.officeSchema()
 					+ " where o.org_id = ? and o.id = ?";
 
@@ -390,7 +405,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 			List<OfficeData> allowedParents = new ArrayList<OfficeData>();
 
 			if (StringUtils.isNotBlank(selectedOffice.getParentName())) {
-				Collection<OfficeData> allOffices = retrieveAllOffices();
+				Collection<OfficeData> allOffices = retrieveAllOfficesInUserHierarchy();
 
 				for (OfficeData office : allOffices) {
 
@@ -415,8 +430,6 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 	@Override
 	public OfficeTransferData retrieveOfficeTransferDetails(Long officeId) {
 		
-		AppUser currentUser = extractAuthenticatedUser();
-		
 		OfficeTransferData officeTransferData = new OfficeTransferData();
 		
 		OfficeData fromOffice = retrieveOffice(officeId);
@@ -426,8 +439,24 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 		// if from office is parent office
 		List<OfficeData> allOffices = new ArrayList<OfficeData>(retrieveAllOffices());
 		allOffices.remove(fromOffice);
+
+		List<OfficeData> possibleFundTransferOffices = new ArrayList<OfficeData>();
+		for (OfficeData office : allOffices) {
+			if (office.getId().equals(fromOffice.getParentId())) {
+				possibleFundTransferOffices.add(office);
+			}
+		}
+
+		List<OfficeData> subOffices = new ArrayList<OfficeData>();
+		for (OfficeData office : allOffices) {
+			if (fromOffice.getId().equals(office.getParentId())) {
+				subOffices.add(office);
+			}
+		}
 		
-		officeTransferData.setPossibleToOffices(allOffices);
+		possibleFundTransferOffices.addAll(subOffices);
+		
+		officeTransferData.setPossibleToOffices(possibleFundTransferOffices);
 		
 		officeTransferData.setFromOffice(fromOffice);
 		officeTransferData.setPaymentDate(new LocalDate());
@@ -442,7 +471,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 		try {
 			AppUser currentUser = extractAuthenticatedUser();
 
-			List<OfficeData> offices = retrieveOffices();
+			List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 			ClientMapper rm = new ClientMapper(offices, currentUser.getOrganisation());
 
 			String sql = "select " + rm.clientSchema()
@@ -1014,7 +1043,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 
 		AppUser currentUser = extractAuthenticatedUser();
 
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 		String officeIdsList = generateOfficeIdInClause(offices);
 
 		AppUserMapper mapper = new AppUserMapper(offices);
@@ -1027,7 +1056,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 	@Override
 	public AppUserData retrieveNewUserDetails() {
 
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 
 		List<RoleData> availableRoles = new ArrayList<RoleData>(retrieveAllRoles());
 
@@ -1043,7 +1072,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 
 		AppUser currentUser = extractAuthenticatedUser();
 
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 
 		List<RoleData> availableRoles = new ArrayList<RoleData>(
 				retrieveAllRoles());
@@ -1077,7 +1106,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 	public AppUserData retrieveCurrentUser() {
 		AppUser currentUser = extractAuthenticatedUser();
 
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 
 		List<RoleData> availableRoles = new ArrayList<RoleData>(retrieveAllRoles());
 
@@ -1221,7 +1250,7 @@ public class ReadPlatformServiceImpl implements ReadPlatformService {
 
 		AppUser currentUser = extractAuthenticatedUser();
 
-		List<OfficeData> offices = retrieveOffices();
+		List<OfficeData> offices = retrieveOfficesInUserHierarchy();
 
 		ClientData clientData = new ClientData();
 		clientData.setOfficeId(currentUser.getOffice().getId());

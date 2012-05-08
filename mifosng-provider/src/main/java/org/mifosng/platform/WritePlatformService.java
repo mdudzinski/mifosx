@@ -2,6 +2,7 @@ package org.mifosng.platform;
 
 import org.mifosng.data.EntityIdentifier;
 import org.mifosng.data.command.AdjustLoanTransactionCommand;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.ChangePasswordCommand;
 import org.mifosng.data.command.CreateLoanProductCommand;
 import org.mifosng.data.command.EnrollClientCommand;
@@ -91,4 +92,6 @@ public interface WritePlatformService {
 	EntityIdentifier addClientNote(NoteCommand command);
 
 	EntityIdentifier updateNote(NoteCommand command);
+
+	Long branchMoneyTransfer(BranchMoneyTransferCommand command);
 }

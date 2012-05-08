@@ -20,6 +20,7 @@ public class OfficeData implements Serializable {
 	private Long parentId;
 	
 	private List<OfficeData> allowedParents = new ArrayList<OfficeData>();
+	private Long userOfficeId;
 
 	public OfficeData() {
 		//
@@ -27,7 +28,7 @@ public class OfficeData implements Serializable {
 
 	public OfficeData(final Long id, final String name,
 			final String externalId, final LocalDate openingDate,
-			String hierarchy, final Long parentId, final String parentName) {
+			String hierarchy, final Long parentId, final String parentName, Long userOfficeId) {
 		this.id = id;
 		this.name = name;
 		this.externalId = externalId;
@@ -35,6 +36,7 @@ public class OfficeData implements Serializable {
 		this.hierarchy = hierarchy;
 		this.parentName = parentName;
 		this.parentId = parentId;
+		this.userOfficeId = userOfficeId;
 	}
 
 	public Long getId() {
@@ -101,6 +103,14 @@ public class OfficeData implements Serializable {
 		this.hierarchy = hierarchy;
 	}
 	
+	public Long getUserOfficeId() {
+		return userOfficeId;
+	}
+
+	public void setUserOfficeId(Long userOfficeId) {
+		this.userOfficeId = userOfficeId;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj == null) return false;

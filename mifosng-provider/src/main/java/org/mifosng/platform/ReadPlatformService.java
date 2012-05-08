@@ -29,7 +29,7 @@ public interface ReadPlatformService {
 
 	Collection<ClientData> retrieveAllIndividualClients();
 
-	Collection<OfficeData> retrieveAllOffices();
+	Collection<OfficeData> retrieveAllOfficesInUserHierarchy();
 
 	ClientData retrieveIndividualClient(Long clientId);
 

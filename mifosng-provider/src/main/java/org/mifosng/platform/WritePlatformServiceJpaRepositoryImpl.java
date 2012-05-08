@@ -1,6 +1,10 @@
 package org.mifosng.platform;
 
-import static org.mifosng.platform.Specifications.*;
+import static org.mifosng.platform.Specifications.loansThatMatch;
+import static org.mifosng.platform.Specifications.officesThatMatch;
+import static org.mifosng.platform.Specifications.productThatMatches;
+import static org.mifosng.platform.Specifications.rolesThatMatch;
+import static org.mifosng.platform.Specifications.usersThatMatch;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -18,6 +22,7 @@ import org.mifosng.data.LoanSchedule;
 import org.mifosng.data.MoneyData;
 import org.mifosng.data.ScheduledLoanInstallment;
 import org.mifosng.data.command.AdjustLoanTransactionCommand;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.CalculateLoanScheduleCommand;
 import org.mifosng.data.command.ChangePasswordCommand;
 import org.mifosng.data.command.CreateLoanProductCommand;
@@ -70,6 +75,8 @@ import org.mifosng.platform.loan.domain.LoanTransaction;
 import org.mifosng.platform.loan.domain.LoanTransactionRepository;
 import org.mifosng.platform.loan.domain.PeriodFrequencyType;
 import org.mifosng.platform.organisation.domain.Office;
+import org.mifosng.platform.organisation.domain.OfficeFundsTransfer;
+import org.mifosng.platform.organisation.domain.OfficeFundsTransferRepository;
 import org.mifosng.platform.organisation.domain.OfficeRepository;
 import org.mifosng.platform.organisation.domain.Organisation;
 import org.mifosng.platform.organisation.domain.OrganisationCurrency;
@@ -93,11 +100,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class WritePlatformServiceJpaRepositoryImpl implements
-		WritePlatformService {
+public class WritePlatformServiceJpaRepositoryImpl implements WritePlatformService {
 
-	private final static Logger logger = LoggerFactory
-			.getLogger(WritePlatformServiceJpaRepositoryImpl.class);
+	private final static Logger logger = LoggerFactory.getLogger(WritePlatformServiceJpaRepositoryImpl.class);
 	
 	private final OrganisationRepository organisationRepository;
 	private final OfficeRepository officeRepository;
@@ -115,11 +120,13 @@ public class WritePlatformServiceJpaRepositoryImpl implements
 	private final AppUserRepository appUserRepository;
 	private final NoteRepository noteRepository;
 	private final LoanTransactionRepository loanTransactionRepository;
+	private final OfficeFundsTransferRepository officeFundsTransferRepository;
 
 	@Autowired
 	public WritePlatformServiceJpaRepositoryImpl(
 			final OrganisationRepository organisationRepository,
 			final OfficeRepository officeRepository,
+			final OfficeFundsTransferRepository officeFundsTransferRepository,
 			final UserDomainService userDomainService,
 			final PlatformUserRepository platformUserRepository,
 			final PlatformPasswordEncoder platformPasswordEncoder,
@@ -136,6 +143,7 @@ public class WritePlatformServiceJpaRepositoryImpl implements
 			final PermissionRepository permissionRepository) {
 		this.organisationRepository = organisationRepository;
 		this.officeRepository = officeRepository;
+		this.officeFundsTransferRepository = officeFundsTransferRepository;
 		this.userDomainService = userDomainService;
 		this.platformUserRepository = platformUserRepository;
 		this.platformPasswordEncoder = platformPasswordEncoder;
@@ -1131,5 +1139,24 @@ public class WritePlatformServiceJpaRepositoryImpl implements
 		noteForUpdate.update(command.getNote());
 		
 		return new EntityIdentifier(noteForUpdate.getId());
+	}
+
+	@Transactional
+	@Override
+	public Long branchMoneyTransfer(BranchMoneyTransferCommand command) {
+		
+		AppUser currentUser = extractAuthenticatedUser();
+		
+		Office fromOffice = this.officeRepository.findOne(command.getFromOfficeId());
+		Office toOffice = this.officeRepository.findOne(command.getFromOfficeId());
+		
+		MonetaryCurrency currency = new MonetaryCurrency("USD", 2);
+		Money amount = Money.of(currency, command.getTransactionAmount());
+		
+		OfficeFundsTransfer entity = OfficeFundsTransfer.create(currentUser.getOrganisation(), fromOffice, toOffice, command.getTransactionDate(), amount);
+		
+		this.officeFundsTransferRepository.save(entity);
+		
+		return entity.getId();
 	}
 }

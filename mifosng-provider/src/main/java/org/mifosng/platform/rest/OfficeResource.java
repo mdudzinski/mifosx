@@ -20,6 +20,7 @@ import org.mifosng.data.ErrorResponseList;
 import org.mifosng.data.OfficeData;
 import org.mifosng.data.OfficeList;
 import org.mifosng.data.OfficeTransferData;
+import org.mifosng.data.command.BranchMoneyTransferCommand;
 import org.mifosng.data.command.OfficeCommand;
 import org.mifosng.platform.ReadPlatformService;
 import org.mifosng.platform.WritePlatformService;
@@ -49,7 +50,7 @@ public class OfficeResource {
 	public Response retrieveOffices() {
 
     	try {
-    		Collection<OfficeData> offices = this.readPlatformService.retrieveAllOffices();
+    		Collection<OfficeData> offices = this.readPlatformService.retrieveAllOfficesInUserHierarchy();
 
     		return Response.ok().entity(new OfficeList(offices)).build();
 		} catch (ClientNotAuthenticatedException e) {
@@ -156,4 +157,27 @@ public class OfficeResource {
 			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getValidationErrors())).build());
 		}
     }
+	
+	@POST
+	@Path("{officeId}/transfer")
+	@Consumes({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+	@Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML })
+	public Response transferFunds(final BranchMoneyTransferCommand command) {
+
+		try {
+			Long officeId = this.writePlatformService.branchMoneyTransfer(command);
+
+			return Response.ok().entity(new EntityIdentifier(officeId)).build();
+		} catch (ClientNotAuthenticatedException e) {
+			throw new WebApplicationException(Response.status(Status.UNAUTHORIZED).build());
+		} catch (AccessDeniedException e) {
+			ErrorResponse errorResponse = new ErrorResponse("error.msg.no.permission", "id");
+			ErrorResponseList list = new ErrorResponseList(Arrays.asList(errorResponse));
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(list).build());
+		} catch (ApplicationDomainRuleException e) {
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getErrors())).build());
+		} catch (NewDataValidationException e) {
+			throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity(new ErrorResponseList(e.getValidationErrors())).build());
+		}
+	}
 }

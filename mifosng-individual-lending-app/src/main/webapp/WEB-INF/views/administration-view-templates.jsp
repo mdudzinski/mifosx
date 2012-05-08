@@ -212,7 +212,9 @@
 		<!--
 		<a id='delete{{=id}}' class='delete' href='#' style='margin-right: 5px;'><spring:message code="link.action.product.delete"/></a>
 		-->
+		{{#if userOfficeId === id}}
 		<a id='transfer{{=id}}' class='transfer' href='#' style='margin-right: 5px;'><spring:message code="link.action.transferfunds"/></a>
+		{{/if}}
 	</td>
 </tr>
 {{/each}}
@@ -262,8 +264,8 @@
 		<input id="name" name="fromOfficeName" title="" type="text" value="{{=fromOffice.name}}" size="75" disabled="disabled" />
 		<input id="fromOfficeId" name="fromOfficeId" title="" type="hidden" value="{{=fromOffice.id}}" />
 
-		<label for="parentId"><spring:message code="form.label.transfer.to"/></label>
-		<select id="parentId" name="parentId" title="">
+		<label for="toOfficeId"><spring:message code="form.label.transfer.to"/></label>
+		<select id="toOfficeId" name="toOfficeId" title="">
             <option value="-1"><spring:message code="option.office.first.choice"/></option>
 			{{#each possibleToOffices}}
 				{{#if $ctx.number($parent.parent.data.toOffice)===$ctx.number(id)}}
