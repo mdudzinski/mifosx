@@ -37,6 +37,10 @@ public class LoanCharge extends AbstractPersistable<Long> {
     @JoinColumn(name = "charge_id", referencedColumnName = "id", nullable = false)
     private Charge charge;
 
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "group_loan_charge_id", referencedColumnName = "id", nullable=false)
+    private GroupLoanCharge groupLoanCharge;
+
     @Column(name = "charge_time_enum", nullable = false)
     private Integer chargeTime;
 
@@ -271,8 +275,11 @@ public class LoanCharge extends AbstractPersistable<Long> {
         this.loan = loan;
     }
 
-    public void update(final LoanChargeCommand command, final BigDecimal loanPrincipal) {
+    public void updateGroupCharge(final GroupLoanCharge groupLoanCharge) {
+        this.groupLoanCharge = groupLoanCharge;
+    }
 
+    public void update(final LoanChargeCommand command, final BigDecimal loanPrincipal){
         if (command.isChargeTimeTypeChanged()) {
             this.chargeTime = ChargeTimeType.fromInt(command.getChargeTimeType()).getValue();
         }
@@ -343,136 +350,141 @@ public class LoanCharge extends AbstractPersistable<Long> {
     }
 
     private boolean determineIfFullyPaid() {
-        return BigDecimal.ZERO.compareTo(calculateOutstanding()) == 0;
-    }
+		return BigDecimal.ZERO.compareTo(calculateOutstanding()) == 0;
+	}
 
-    private BigDecimal calculateOutstanding() {
+	private BigDecimal calculateOutstanding() {
+    	
+    	BigDecimal amountPaidLocal = BigDecimal.ZERO;
+    	if (this.amountPaid != null) {
+    		amountPaidLocal = this.amountPaid;
+    	}
+    	
+    	BigDecimal amountWaivedLocal = BigDecimal.ZERO;
+    	if (this.amountWaived != null) {
+    		amountWaivedLocal = this.amountWaived;
+    	}
+    	
+    	BigDecimal amountWrittenOffLocal = BigDecimal.ZERO;
+    	if (this.amountWrittenOff != null) {
+    		amountWrittenOffLocal = this.amountWrittenOff;
+    	}
+    	
+    	final BigDecimal totalAccountedFor = amountPaidLocal.add(amountWaivedLocal).add(amountWrittenOffLocal);
+    	
+		return this.amount.subtract(totalAccountedFor);
+	}
 
-        BigDecimal amountPaidLocal = BigDecimal.ZERO;
-        if (this.amountPaid != null) {
-            amountPaidLocal = this.amountPaid;
-        }
+	private BigDecimal percentageOf(final BigDecimal value, final BigDecimal percentage) {
+		
+		BigDecimal percentageOf = BigDecimal.ZERO;
+		
+		if (isGreaterThanZero(value)) {
+			final MathContext mc = new MathContext(8, RoundingMode.HALF_EVEN);
+			BigDecimal multiplicand = percentage.divide(BigDecimal.valueOf(100l), mc);
+			percentageOf = value.multiply(multiplicand, mc);
+		}
+		
+    	return percentageOf;
+	}
 
-        BigDecimal amountWaivedLocal = BigDecimal.ZERO;
-        if (this.amountWaived != null) {
-            amountWaivedLocal = this.amountWaived;
-        }
+	public BigDecimal amount() {
+		return this.amount;
+	}
+	
+	public boolean hasNotLoanIdentifiedBy(final Long loanId) {
+		return !hasLoanIdentifiedBy(loanId);
+	}
+	
+	public boolean hasLoanIdentifiedBy(final Long loanId) {
+		return this.loan.hasIdentifyOf(loanId);
+	}
 
-        BigDecimal amountWrittenOffLocal = BigDecimal.ZERO;
-        if (this.amountWrittenOff != null) {
-            amountWrittenOffLocal = this.amountWrittenOff;
-        }
+	public boolean isDueForCollectionBetween(final LocalDate fromNotInclusive, final LocalDate toInclusive) {
+		final LocalDate specifiedDueDate = getDueForCollectionAsOfLocalDate();
+		
+		return specifiedDueDateFallsWithinPeriod(fromNotInclusive, toInclusive, specifiedDueDate);
+	}
 
-        final BigDecimal totalAccountedFor = amountPaidLocal.add(amountWaivedLocal).add(amountWrittenOffLocal);
+	private boolean specifiedDueDateFallsWithinPeriod(
+			final LocalDate fromNotInclusive, 
+			final LocalDate toInclusive,
+			final LocalDate specifiedDueDate) {
+		return specifiedDueDate != null && fromNotInclusive.isBefore(specifiedDueDate) && (toInclusive.isAfter(specifiedDueDate) || toInclusive.isEqual(specifiedDueDate));
+	}
 
-        return this.amount.subtract(totalAccountedFor);
-    }
+	public boolean isFeeCharge() {
+		return !this.penaltyCharge;
+	}
+	
+	public boolean isPenaltyCharge() {
+		return this.penaltyCharge;
+	}
+	
+	public boolean isNotFullyPaid() {
+		return !isPaid();
+	}
 
-    private BigDecimal percentageOf(final BigDecimal value, final BigDecimal percentage) {
+	public boolean isPaid() {
+		return this.paid;
+	}
+	
+	public boolean isPaidOrPartiallyPaid(final MonetaryCurrency currency) {
+		
+		final Money amountWaivedOrWrittenOff = getAmountWaived(currency).plus(getAmountWrittenOff(currency));
+		return Money.of(currency, this.amountPaid).plus(amountWaivedOrWrittenOff).isGreaterThanZero();
+	}
+	
+	public boolean isWaivedOrPartiallyWaived(final MonetaryCurrency currency) {
+		return getAmountWaived(currency).isGreaterThanZero();
+	}
 
-        BigDecimal percentageOf = BigDecimal.ZERO;
+	private Money getAmount(final MonetaryCurrency currency) {
+		return Money.of(currency, this.amount);
+	}
+	
+	private Money getAmountPaid(final MonetaryCurrency currency) {
+		return Money.of(currency, this.amountPaid);
+	}
+	
+	public Money getAmountWaived(final MonetaryCurrency currency) {
+		return Money.of(currency, this.amountWaived);
+	}
+	
+	public Money getAmountWrittenOff(final MonetaryCurrency currency) {
+		return Money.of(currency, this.amountWrittenOff);
+	}
 
-        if (isGreaterThanZero(value)) {
-            final MathContext mc = new MathContext(8, RoundingMode.HALF_EVEN);
-            BigDecimal multiplicand = percentage.divide(BigDecimal.valueOf(100l), mc);
-            percentageOf = value.multiply(multiplicand, mc);
-        }
+	public Money updatePaidAmountBy(final Money incrementBy) {
+		
+		Money amountPaidToDate = Money.of(incrementBy.getCurrency(), this.amountPaid);
+		Money amountOutstanding = Money.of(incrementBy.getCurrency(), this.amountOutstanding);
+		
+		Money amountPaidOnThisCharge = Money.zero(incrementBy.getCurrency());
+		if (incrementBy.isGreaterThanOrEqualTo(amountOutstanding)) {
+			amountPaidOnThisCharge = amountOutstanding;
+			amountPaidToDate = amountPaidToDate.plus(amountOutstanding);
+			this.amountPaid = amountPaidToDate.getAmount();
+			this.amountOutstanding = BigDecimal.ZERO;
+		} else {
+			amountPaidOnThisCharge = incrementBy;
+			amountPaidToDate = amountPaidToDate.plus(incrementBy);
+			this.amountPaid = amountPaidToDate.getAmount();
+			
+			Money amountExpected = Money.of(incrementBy.getCurrency(), this.amount);
+			this.amountOutstanding = amountExpected.minus(amountPaidToDate).getAmount();
+		}
+		
+		this.paid = determineIfFullyPaid();
+		
+		return incrementBy.minus(amountPaidOnThisCharge);
+	}
 
-        return percentageOf;
-    }
+	public String name() {
+		return this.charge.getName();
+	}
 
-    public BigDecimal amount() {
-        return this.amount;
-    }
-
-    public boolean hasNotLoanIdentifiedBy(final Long loanId) {
-        return !hasLoanIdentifiedBy(loanId);
-    }
-
-    public boolean hasLoanIdentifiedBy(final Long loanId) {
-        return this.loan.hasIdentifyOf(loanId);
-    }
-
-    public boolean isDueForCollectionBetween(final LocalDate fromNotInclusive, final LocalDate toInclusive) {
-        final LocalDate specifiedDueDate = getDueForCollectionAsOfLocalDate();
-
-        return specifiedDueDateFallsWithinPeriod(fromNotInclusive, toInclusive, specifiedDueDate);
-    }
-
-    private boolean specifiedDueDateFallsWithinPeriod(final LocalDate fromNotInclusive, final LocalDate toInclusive,
-            final LocalDate specifiedDueDate) {
-        return specifiedDueDate != null && fromNotInclusive.isBefore(specifiedDueDate)
-                && (toInclusive.isAfter(specifiedDueDate) || toInclusive.isEqual(specifiedDueDate));
-    }
-
-    public boolean isFeeCharge() {
-        return !this.penaltyCharge;
-    }
-
-    public boolean isPenaltyCharge() {
-        return this.penaltyCharge;
-    }
-
-    public boolean isNotFullyPaid() {
-        return !isPaid();
-    }
-
-    public boolean isPaid() {
-        return this.paid;
-    }
-
-    public boolean isPaidOrPartiallyPaid(final MonetaryCurrency currency) {
-
-        final Money amountWaivedOrWrittenOff = getAmountWaived(currency).plus(getAmountWrittenOff(currency));
-        return Money.of(currency, this.amountPaid).plus(amountWaivedOrWrittenOff).isGreaterThanZero();
-    }
-
-    public boolean isWaivedOrPartiallyWaived(final MonetaryCurrency currency) {
-        return getAmountWaived(currency).isGreaterThanZero();
-    }
-
-    private Money getAmount(final MonetaryCurrency currency) {
-        return Money.of(currency, this.amount);
-    }
-
-    private Money getAmountPaid(final MonetaryCurrency currency) {
-        return Money.of(currency, this.amountPaid);
-    }
-
-    public Money getAmountWaived(final MonetaryCurrency currency) {
-        return Money.of(currency, this.amountWaived);
-    }
-
-    public Money getAmountWrittenOff(final MonetaryCurrency currency) {
-        return Money.of(currency, this.amountWrittenOff);
-    }
-
-    public Money updatePaidAmountBy(final Money incrementBy) {
-
-        Money amountPaidToDate = Money.of(incrementBy.getCurrency(), this.amountPaid);
-        Money amountOutstanding = Money.of(incrementBy.getCurrency(), this.amountOutstanding);
-
-        Money amountPaidOnThisCharge = Money.zero(incrementBy.getCurrency());
-        if (incrementBy.isGreaterThanOrEqualTo(amountOutstanding)) {
-            amountPaidOnThisCharge = amountOutstanding;
-            amountPaidToDate = amountPaidToDate.plus(amountOutstanding);
-            this.amountPaid = amountPaidToDate.getAmount();
-            this.amountOutstanding = BigDecimal.ZERO;
-        } else {
-            amountPaidOnThisCharge = incrementBy;
-            amountPaidToDate = amountPaidToDate.plus(incrementBy);
-            this.amountPaid = amountPaidToDate.getAmount();
-
-            Money amountExpected = Money.of(incrementBy.getCurrency(), this.amount);
-            this.amountOutstanding = amountExpected.minus(amountPaidToDate).getAmount();
-        }
-
-        this.paid = determineIfFullyPaid();
-
-        return incrementBy.minus(amountPaidOnThisCharge);
-    }
-
-    public String name() {
-        return this.charge.getName();
+    public Loan getLoan() {
+        return loan;
     }
 }
