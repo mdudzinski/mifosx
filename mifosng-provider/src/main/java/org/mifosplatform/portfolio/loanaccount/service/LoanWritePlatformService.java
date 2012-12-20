@@ -3,7 +3,9 @@ package org.mifosplatform.portfolio.loanaccount.service;
 import org.mifosplatform.infrastructure.core.data.EntityIdentifier;
 import org.mifosplatform.organisation.staff.command.BulkTransferLoanOfficerCommand;
 import org.mifosplatform.portfolio.loanaccount.command.AdjustLoanTransactionCommand;
+import org.mifosplatform.portfolio.loanaccount.command.BulkLoanStateTransitionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.GroupLoanApplicationCommand;
+import org.mifosplatform.portfolio.loanaccount.command.GroupLoanTransactionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanApplicationCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanChargeCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanStateTransitionCommand;
@@ -28,6 +30,9 @@ public interface LoanWritePlatformService {
 	@PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'APPROVE_LOAN', 'APPROVEINPAST_LOAN')")
 	EntityIdentifier approveLoanApplication(LoanStateTransitionCommand command);
 
+    @PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'APPROVE_LOAN', 'APPROVEINPAST_LOAN')")
+    EntityIdentifier[] bulkApproveLoanApplication(BulkLoanStateTransitionCommand command);
+
 	@PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'APPROVALUNDO_LOAN')")
 	EntityIdentifier undoLoanApproval(UndoStateTransitionCommand command);
 
@@ -45,6 +50,9 @@ public interface LoanWritePlatformService {
 	
 	@PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'REPAYMENT_LOAN', 'REPAYMENTINPAST_LOAN')")
 	public EntityIdentifier makeLoanRepayment(LoanTransactionCommand command);
+
+    @PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'REPAYMENT_LOAN', 'REPAYMENTINPAST_LOAN')")
+    public EntityIdentifier makeGroupLoanRepayment(GroupLoanTransactionCommand command);
 
 	@PreAuthorize(value = "hasAnyRole('ALL_FUNCTIONS', 'PORTFOLIO_MANAGEMENT_SUPER_USER', 'ADJUST_LOAN')")
 	EntityIdentifier adjustLoanTransaction(AdjustLoanTransactionCommand command);

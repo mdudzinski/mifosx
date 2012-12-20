@@ -1,5 +1,6 @@
 package org.mifosplatform.portfolio.loanaccount.api;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -14,6 +15,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.commons.lang.StringUtils;
@@ -23,9 +25,12 @@ import org.mifosplatform.infrastructure.core.api.PortfolioApiDataConversionServi
 import org.mifosplatform.infrastructure.core.api.PortfolioApiJsonSerializerService;
 import org.mifosplatform.infrastructure.core.data.EntityIdentifier;
 import org.mifosplatform.infrastructure.core.data.EnumOptionData;
+import org.mifosplatform.infrastructure.core.exception.UnrecognizedQueryParamException;
 import org.mifosplatform.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.mifosplatform.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
+import org.mifosplatform.organisation.monetary.domain.MonetaryCurrency;
+import org.mifosplatform.organisation.monetary.domain.Money;
 import org.mifosplatform.organisation.staff.data.StaffData;
 import org.mifosplatform.organisation.staff.service.StaffReadPlatformService;
 import org.mifosplatform.portfolio.charge.data.ChargeData;
@@ -34,14 +39,21 @@ import org.mifosplatform.portfolio.client.data.ClientLookup;
 import org.mifosplatform.portfolio.fund.data.FundData;
 import org.mifosplatform.portfolio.fund.service.FundReadPlatformService;
 import org.mifosplatform.portfolio.group.service.GroupReadPlatformService;
+import org.mifosplatform.portfolio.loanaccount.command.BulkLoanStateTransitionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.GroupLoanApplicationCommand;
+import org.mifosplatform.portfolio.loanaccount.command.GroupLoanTransactionCommand;
+import org.mifosplatform.portfolio.loanaccount.command.LoanStateTransitionCommand;
+import org.mifosplatform.portfolio.loanaccount.command.LoanTransactionCommand;
+import org.mifosplatform.portfolio.loanaccount.command.UndoStateTransitionCommand;
 import org.mifosplatform.portfolio.loanaccount.data.DisbursementData;
 import org.mifosplatform.portfolio.loanaccount.data.GroupLoanAccountData;
 import org.mifosplatform.portfolio.loanaccount.data.GroupLoanBasicDetailsData;
+import org.mifosplatform.portfolio.loanaccount.data.GroupLoanTransactionData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanAccountData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanBasicDetailsData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanChargeData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanPermissionData;
+import org.mifosplatform.portfolio.loanaccount.data.LoanTransactionData;
 import org.mifosplatform.portfolio.loanaccount.loanschedule.command.CalculateLoanScheduleCommand;
 import org.mifosplatform.portfolio.loanaccount.loanschedule.data.LoanScheduleData;
 import org.mifosplatform.portfolio.loanaccount.loanschedule.service.CalculationPlatformService;
@@ -54,6 +66,7 @@ import org.mifosplatform.portfolio.loanproduct.service.LoanProductReadPlatformSe
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 @Path("/grouploans")
 @Component
@@ -176,8 +189,9 @@ public class GroupLoansApiResource {
         context.authenticatedUser().validateHasReadPermission("LOAN");
 
         GroupLoanBasicDetailsData groupLoanBasicDetails = this.loanReadPlatformService.retrieveGroupLoanAccountDetails(groupLoanId);
-        Collection<LoanBasicDetailsData> membersAccountsDetails = null;
+        Collection<LoanAccountData> membersAccounts = new ArrayList<LoanAccountData>();
         LoanScheduleData repaymentSchedule = null;
+        Collection<LoanTransactionData> membersRepayments = null;
 
         final Set<String> associationParameters = ApiParameterHelper.extractAssociationsForResponseIfProvided(uriInfo.getQueryParameters());
 
@@ -187,7 +201,21 @@ public class GroupLoansApiResource {
             }
 
             if (associationParameters.contains("loanMembers")) {
-                membersAccountsDetails = this.loanReadPlatformService.retrieveGroupLoanMembersAccountsDetails(groupLoanId);
+                Collection<LoanBasicDetailsData> membersBasicDetails = this.loanReadPlatformService.retrieveGroupLoanMembersAccountsDetails(groupLoanId);
+                for (LoanBasicDetailsData memberBasicDetails : membersBasicDetails){
+                    LoanPermissionData memberPermissions = this.loanReadPlatformService.retrieveLoanPermissions(memberBasicDetails, Boolean.FALSE,
+                            0, Boolean.FALSE);
+                    membersAccounts.add(LoanAccountData.memberLoanAccountData(memberBasicDetails, memberPermissions));
+                }
+            }
+
+            if (associationParameters.contains("transactions")) {
+                for (LoanAccountData memberAccount : membersAccounts){
+                    Collection<LoanTransactionData> memberLoanRepayments = this.loanReadPlatformService.retrieveLoanTransactions(memberAccount.getId());
+                    if (!CollectionUtils.isEmpty(memberLoanRepayments)) {
+                        membersRepayments.addAll(memberLoanRepayments);
+                    }
+                }
             }
 
             if (associationParameters.contains("repaymentSchedule")) {
@@ -197,7 +225,7 @@ public class GroupLoansApiResource {
             }
         }
 
-        GroupLoanAccountData groupLoanAccount = new GroupLoanAccountData(groupLoanBasicDetails, membersAccountsDetails, repaymentSchedule);
+        GroupLoanAccountData groupLoanAccount = new GroupLoanAccountData(groupLoanBasicDetails, membersAccounts, repaymentSchedule);
 
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return this.toApiJsonSerializer.serialize(settings, groupLoanAccount, GROUP_LOAN_DATA_TEMPLATE_PARAMETERS);
@@ -232,6 +260,67 @@ public class GroupLoansApiResource {
 
         return this.apiJsonSerializerService.serializeLoanScheduleDataToJson(prettyPrint, responseParameters, loanSchedule);
     }
+
+    @GET
+    @Path("{groupLoanId}/transactions/template")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveNewRepaymentDetails(@PathParam("groupLoanId") final Long groupLoanId, @QueryParam("command") final String commandParam,
+                                              @Context final UriInfo uriInfo) {
+
+        context.authenticatedUser().validateHasReadPermission("LOAN");
+
+        final Set<String> responseParameters = ApiParameterHelper.extractFieldsForResponseIfProvided(uriInfo.getQueryParameters());
+        final boolean prettyPrint = ApiParameterHelper.prettyPrint(uriInfo.getQueryParameters());
+
+        GroupLoanTransactionData groupLoanTransactionData = null;
+        if (is(commandParam, "repayment")) {
+            groupLoanTransactionData = this.loanReadPlatformService.retrieveNewGroupLoanRepaymentDetails(groupLoanId);
+        } else {
+            throw new UnrecognizedQueryParamException("command", commandParam);
+        }
+
+        return this.apiJsonSerializerService.serializeGroupLoanTransactionDataToJson(prettyPrint, responseParameters, groupLoanTransactionData);
+    }
+
+    @POST
+    @Path("{groupLoanId}/transactions")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public Response executeLoanTransaction(@PathParam("groupLoanId") final Long groupLoanId, @QueryParam("command") final String commandParam,
+                                           final String jsonRequestBody) {
+
+        final GroupLoanTransactionCommand command = this.apiDataConversionService.convertJsonToGroupLoanTransactionCommand(groupLoanId, jsonRequestBody);
+
+        EntityIdentifier identifier = null;
+        if (is(commandParam, "repayment")) {
+            identifier = this.loanWritePlatformService.makeGroupLoanRepayment(command);
+        }
+        if (identifier == null) { throw new UnrecognizedQueryParamException("command", commandParam); }
+
+        return Response.ok().entity(identifier).build();
+    }
+//    @POST
+//    @Path("{groupLoanId}")
+//    @Consumes({ MediaType.APPLICATION_JSON })
+//    @Produces({ MediaType.APPLICATION_JSON })
+//    public Response stateTransitions(@QueryParam("command") final String commandParam,
+//                                     final String jsonRequestBody) {
+//
+//        BulkLoanStateTransitionCommand command = this.apiDataConversionService.convertJsonToBulkLoanStateTransitionCommand(jsonRequestBody);
+//
+//        Response response = null;
+//
+//        if (is(commandParam, "approve")) {
+//            EntityIdentifier[] identifiers = this.loanWritePlatformService.bulkApproveLoanApplication(command);
+//            response = Response.ok().entity(identifiers).build();
+//        }
+//
+//        if (response == null) { throw new UnrecognizedQueryParamException("command", commandParam); }
+//
+//        return response;
+//    }
+
 
     private boolean is(final String commandParam, final String commandValue) {
         return StringUtils.isNotBlank(commandParam) && commandParam.trim().equalsIgnoreCase(commandValue);

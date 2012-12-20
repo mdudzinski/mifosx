@@ -26,6 +26,7 @@ import org.mifosplatform.portfolio.group.data.GroupData;
 import org.mifosplatform.portfolio.group.service.GroupReadPlatformService;
 import org.mifosplatform.portfolio.loanaccount.data.DisbursementData;
 import org.mifosplatform.portfolio.loanaccount.data.GroupLoanBasicDetailsData;
+import org.mifosplatform.portfolio.loanaccount.data.GroupLoanTransactionData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanBasicDetailsData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanChargeData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanPermissionData;
@@ -605,7 +606,46 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
 		return new LoanTransactionData(null, transactionType, currencyData, earliestUnpaidInstallmentDate, possibleNextRepaymentAmount.getAmount(), null, null, null, null);
 	}
 
-	@Override
+    @Override
+    public GroupLoanTransactionData retrieveNewGroupLoanRepaymentDetails(Long groupLoanId) {
+
+        context.authenticatedUser();
+
+        GroupLoan groupLoan = this.groupLoanRepository.findOne(groupLoanId);
+        if (groupLoan == null) { throw new LoanNotFoundException(groupLoanId); }
+
+        List<LoanTransactionData> membersRepaymentsDetails = new ArrayList<LoanTransactionData>();
+
+        String currencyCode = null;
+        ApplicationCurrency currency = null;
+        CurrencyData currencyData = null;
+        LocalDate earliestUnpaidInstallmentDate = null;
+        Money possibleNextRepaymentAmount = null;
+        EnumOptionData transactionType = null;
+
+        for (Loan member : groupLoan.getMemberLoans()) {
+            if (member.isOpen()) {
+                currencyCode = member.repaymentScheduleDetail().getPrincipal().getCurrencyCode();
+                currency = this.applicationCurrencyRepository.findOneByCode(currencyCode);
+                if (currency == null) { throw new CurrencyNotFoundException(currencyCode); }
+
+                currencyData = new CurrencyData(currency.getCode(), currency.getName(), currency.getDecimalPlaces(),
+                        currency.getDisplaySymbol(), currency.getNameCode());
+
+                earliestUnpaidInstallmentDate = member.possibleNextRepaymentDate();
+
+                possibleNextRepaymentAmount = member.possibleNextRepaymentAmount();
+                transactionType = LoanEnumerations.transactionType(LoanTransactionType.REPAYMENT);
+
+                membersRepaymentsDetails.add(new LoanTransactionData(null, transactionType, currencyData, earliestUnpaidInstallmentDate,
+                        possibleNextRepaymentAmount.getAmount(), null, null, null, null, member.getId(), member.loanProduct().getName()));
+            }
+        }
+
+        return new GroupLoanTransactionData(membersRepaymentsDetails, earliestUnpaidInstallmentDate);
+    }
+
+    @Override
 	public LoanTransactionData retrieveNewLoanWaiveInterestDetails(final Long loanId) {
 
 		context.authenticatedUser();

@@ -37,10 +37,10 @@ public class GroupLoanAccountData {
     private final LocalDate expectedMaturityDate;
     private final LocalDate lifeCycleStatusDate;
 
-    private final Collection<LoanBasicDetailsData> loanMembers;
+    private final Collection<LoanAccountData> loanMembers;
     private final LoanScheduleData repaymentSchedule;
 
-    public GroupLoanAccountData(GroupLoanBasicDetailsData basicDetails, Collection<LoanBasicDetailsData> loanMembers,
+    public GroupLoanAccountData(GroupLoanBasicDetailsData basicDetails, Collection<LoanAccountData> loanMembers,
             LoanScheduleData repaymentSchedule) {
         this.loanMembers = loanMembers;
         this.repaymentSchedule = repaymentSchedule;

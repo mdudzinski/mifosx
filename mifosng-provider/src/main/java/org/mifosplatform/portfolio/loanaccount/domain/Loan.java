@@ -1345,6 +1345,10 @@ public class Loan extends AbstractAuditableCustom<AppUser, Long> {
         return this.isOpen() && hasNoRepaymentTransaction();
     }
 
+    public boolean isMemberLoan() {
+        return this.groupLoan != null;
+    }
+
     private boolean hasNoRepaymentTransaction() {
         return !hasRepaymentTransaction();
     }
@@ -1672,4 +1676,7 @@ public class Loan extends AbstractAuditableCustom<AppUser, Long> {
         return client;
     }
 
+    public GroupLoan getGroupLoan() {
+        return groupLoan;
+    }
 }

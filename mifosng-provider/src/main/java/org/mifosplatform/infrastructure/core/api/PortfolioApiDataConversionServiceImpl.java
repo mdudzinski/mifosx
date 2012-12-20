@@ -29,8 +29,10 @@ import org.mifosplatform.portfolio.client.data.ClientData;
 import org.mifosplatform.portfolio.client.serialization.ClientCommandFromApiJsonDeserializer;
 import org.mifosplatform.portfolio.group.command.GroupCommand;
 import org.mifosplatform.portfolio.loanaccount.command.AdjustLoanTransactionCommand;
+import org.mifosplatform.portfolio.loanaccount.command.BulkLoanStateTransitionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.GroupLoanApplicationCommand;
 import org.mifosplatform.portfolio.loanaccount.command.GroupLoanChargeCommand;
+import org.mifosplatform.portfolio.loanaccount.command.GroupLoanTransactionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanApplicationCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanChargeCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanStateTransitionCommand;
@@ -465,6 +467,42 @@ public class PortfolioApiDataConversionServiceImpl implements PortfolioApiDataCo
     }
 
     @Override
+    public BulkLoanStateTransitionCommand convertJsonToBulkLoanStateTransitionCommand(String json) {
+
+        Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        Map<String, Object> requestMap = gsonConverter.fromJson(json, typeOfMap);
+
+        Set<String> supportedParams = new HashSet<String>(Arrays.asList("loans", "eventDate", "note", "locale", "dateFormat"));
+
+        checkForUnsupportedParameters(requestMap, supportedParams);
+
+        Set<String> modifiedParameters = new HashSet<String>();
+
+        LocalDate eventDate = extractLocalDateParameter("eventDate", requestMap, modifiedParameters);
+        String note = extractStringParameter("note", requestMap, modifiedParameters);
+
+        // check array
+        JsonParser parser = new JsonParser();
+
+        String[] loans = null;
+        JsonElement element = parser.parse(json);
+        if (element.isJsonObject()) {
+            JsonObject object = element.getAsJsonObject();
+            if (object.has("loans")) {
+                modifiedParameters.add("loans");
+                JsonArray array = object.get("loans").getAsJsonArray();
+                loans = new String[array.size()];
+                for (int i = 0; i < array.size(); i++) {
+                    loans[i] = array.get(i).getAsString();
+                }
+            }
+        }
+        //
+
+        return new BulkLoanStateTransitionCommand(eventDate, note, loans);
+    }
+
+    @Override
     public LoanTransactionCommand convertJsonToLoanTransactionCommand(final Long resourceIdentifier, final String json) {
         if (StringUtils.isBlank(json)) { throw new InvalidJsonException(); }
 
@@ -483,6 +521,47 @@ public class PortfolioApiDataConversionServiceImpl implements PortfolioApiDataCo
         String note = extractStringParameter("note", requestMap, modifiedParameters);
 
         return new LoanTransactionCommand(resourceIdentifier, transactionDate, transactionAmount, note);
+    }
+
+    @Override
+    public GroupLoanTransactionCommand convertJsonToGroupLoanTransactionCommand(Long resourceIdentifier, String json) {
+        Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        Map<String, Object> requestMap = gsonConverter.fromJson(json, typeOfMap);
+
+        Set<String> supportedParams = new HashSet<String>(Arrays.asList("transactionDate", "note", "dateFormat",
+                "locale", "membersTransactions"));
+
+        checkForUnsupportedParameters(requestMap, supportedParams);
+
+        Set<String> modifiedParameters = new HashSet<String>();
+
+        LocalDate transactionDate = extractLocalDateParameter("transactionDate", requestMap, modifiedParameters);
+        String note = extractStringParameter("note", requestMap, modifiedParameters);
+
+        // check array
+        final JsonParser parser = new JsonParser();
+        final JsonParserHelper helper = new JsonParserHelper();
+
+        LoanTransactionCommand[] membersCommands = null;
+        JsonElement element = parser.parse(json);
+        if (element.isJsonObject()) {
+            JsonObject object = element.getAsJsonObject();
+            if (object.has("membersTransactions")) {
+                modifiedParameters.add("membersTransactions");
+                JsonArray array = object.get("membersTransactions").getAsJsonArray();
+                membersCommands = new LoanTransactionCommand[array.size()];
+                for (int i = 0; i < array.size(); i++) {
+                    final Set<String> parametersPassedInForMemberTransactionCommand = new HashSet<String>();
+                    final JsonObject memberTransactionElement = array.get(i).getAsJsonObject();
+                    Long memberId = helper.extractLongNamed("loanId", memberTransactionElement, parametersPassedInForMemberTransactionCommand);
+                    BigDecimal transactionAmount = helper.extractBigDecimalWithLocaleNamed("transactionAmount", memberTransactionElement, parametersPassedInForMemberTransactionCommand);
+                    membersCommands[i] = new LoanTransactionCommand(memberId, transactionDate, transactionAmount, note);
+                }
+            }
+        }
+        //
+
+        return new GroupLoanTransactionCommand(resourceIdentifier, membersCommands, note, transactionDate);
     }
 
     @Override

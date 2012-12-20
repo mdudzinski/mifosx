@@ -29,7 +29,9 @@ import org.mifosplatform.portfolio.client.exception.ClientNotFoundException;
 import org.mifosplatform.portfolio.fund.domain.Fund;
 import org.mifosplatform.portfolio.loanaccount.command.AdjustLoanTransactionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.AdjustLoanTransactionCommandValidator;
+import org.mifosplatform.portfolio.loanaccount.command.BulkLoanStateTransitionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.GroupLoanApplicationCommand;
+import org.mifosplatform.portfolio.loanaccount.command.GroupLoanTransactionCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanApplicationCommand;
 import org.mifosplatform.portfolio.loanaccount.command.LoanApplicationCommandValidator;
 import org.mifosplatform.portfolio.loanaccount.command.LoanChargeCommand;
@@ -225,7 +227,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 		
 		List<Note> relatedNotes = this.noteRepository.findByLoanId(loan.getId());
 		this.noteRepository.deleteInBatch(relatedNotes);
-		
+
+        if (loan.isMemberLoan()){
+            loan.getGroupLoan().removeMemberLoan(loan);
+        }
 		this.loanRepository.delete(loanId);
 		
 		return new EntityIdentifier(loanId);
@@ -259,7 +264,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 		return new EntityIdentifier(loan.getId());
 	}
 
-	@Transactional
+    @Transactional
+    @Override
+    public EntityIdentifier[] bulkApproveLoanApplication(BulkLoanStateTransitionCommand command) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Transactional
 	@Override
 	public EntityIdentifier undoLoanApproval(final UndoStateTransitionCommand command) {
 
@@ -487,7 +498,30 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 		return new EntityIdentifier(loan.getId());
 	}
 
-	@Transactional
+    @Override
+    public EntityIdentifier makeGroupLoanRepayment(GroupLoanTransactionCommand command) {
+
+        AppUser currentUser = context.authenticatedUser();
+
+        GroupLoan groupLoan = groupLoanRepository.findOne(command.getGroupLoanId());
+
+        if (groupLoan == null){
+            throw new LoanNotFoundException(command.getGroupLoanId());
+        }
+
+        LocalDate transactionDate = command.getTransactionDate();
+        if (this.isBeforeToday(transactionDate) && currentUser.canNotMakeRepaymentOnLoanInPast()) {
+            throw new NoAuthorizationException("error.msg.no.permission.to.make.repayment.on.loan.in.past");
+        }
+
+        for (LoanTransactionCommand memberCommand : command.getMembersTransactionsCommands()){
+            makeLoanRepayment(memberCommand);
+        }
+
+        return new EntityIdentifier(groupLoan.getId());
+    }
+
+    @Transactional
 	@Override
 	public EntityIdentifier adjustLoanTransaction(final AdjustLoanTransactionCommand command) {
 

@@ -196,4 +196,8 @@ public class LoanProduct extends AbstractAuditableCustom<AppUser, Long> {
 
         return chargeIds.toArray(new String[chargeIds.size()]);
     }
+
+    public String getName() {
+        return name;
+    }
 }

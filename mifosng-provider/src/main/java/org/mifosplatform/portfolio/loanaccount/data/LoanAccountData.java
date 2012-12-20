@@ -86,6 +86,11 @@ public class LoanAccountData {
 	private final ChargeData chargeTemplate;
     private final Collection<ClientLookup> allowedClients;
 
+    public static LoanAccountData memberLoanAccountData(LoanBasicDetailsData basicDetailsData, LoanPermissionData permissions) {
+        return new LoanAccountData(basicDetailsData, false, null, null, permissions, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null);
+    }
+    
 	public LoanAccountData(
 			final LoanBasicDetailsData basicDetails,
 			final boolean convenienceDataRequired, 
@@ -194,4 +199,8 @@ public class LoanAccountData {
 		this.status = basicDetails.getStatus();
 		this.lifeCycleStatusDate = basicDetails.getLifeCycleStatusDate();
 	}
+
+    public Long getId() {
+        return id;
+    }
 }

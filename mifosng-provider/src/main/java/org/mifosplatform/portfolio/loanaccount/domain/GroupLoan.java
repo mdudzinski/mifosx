@@ -210,6 +210,13 @@ public class GroupLoan extends AbstractAuditableCustom<AppUser, Long> {
         }
     }
 
+    public void removeMemberLoan(Loan member){
+        this.memberLoans.remove(member);
+        for (GroupLoanCharge groupCharge : this.charges){
+            groupCharge.getMemberLoanCharges().removeAll(member.getCharges());
+        }
+    }
+
     public Set<Loan> getMemberLoans() {
         return memberLoans;
     }
